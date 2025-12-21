@@ -1,0 +1,25 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install curl for healthchecks
+RUN apk add --no-cache curl
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json vite.config.ts tailwind.config.ts postcss.config.js ./
+COPY index.html ./
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Copy source code
+COPY src ./src
+COPY public ./public
+
+EXPOSE 5173
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:5173/ || exit 1
+
+CMD ["npm", "run", "dev", "--", "--host"]

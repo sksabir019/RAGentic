@@ -1,0 +1,320 @@
+version: '3.8'
+
+services:
+  # ============ Infrastructure ============
+  
+  mongodb:
+    image: mongo:7.0
+    container_name: ragentic-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root123
+      MONGO_INITDB_DATABASE: ragentic
+    volumes:
+      - mongodb_data:/data/db
+      - ./infra/mongo-init.js:/docker-entrypoint-initdb.d/init-mongo.js
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ragentic-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis123
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: ragentic-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  # ============ Backend Services ============
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://root:root123@mongodb:27017/ragentic?authSource=admin
+      REDIS_URL: redis://:redis123@redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_SECRET: dev-secret-key-change-in-production
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PINECONE_API_KEY: ${PINECONE_API_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET_NAME: ragentic-uploads
+      INGESTION_AGENT_URL: http://ingestion-agent:3001
+      QUERY_PARSER_AGENT_URL: http://query-parser-agent:3002
+      RETRIEVAL_AGENT_URL: http://retrieval-agent:3003
+      RANKING_AGENT_URL: http://ranking-agent:3004
+      GENERATION_AGENT_URL: http://generation-agent:3005
+      VALIDATION_AGENT_URL: http://validation-agent:3006
+      CREW_CONTROL_URL: http://crew-control:4000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  # ============ Agent Services ============
+
+  ingestion-agent:
+    build:
+      context: ./agents/ingestion-agent
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-ingestion-agent
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      AGENT_PORT: 3001
+      AGENT_NAME: ingestion-agent
+      MONGODB_URI: mongodb://root:root123@mongodb:27017/ragentic?authSource=admin
+      REDIS_URL: redis://:redis123@redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PINECONE_API_KEY: ${PINECONE_API_KEY}
+      CHUNK_SIZE_TOKENS: 512
+      CHUNK_OVERLAP_TOKENS: 50
+      LOG_LEVEL: debug
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./agents/ingestion-agent:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  query-parser-agent:
+    build:
+      context: ./agents/query-parser-agent
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-query-parser-agent
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+      AGENT_PORT: 3002
+      AGENT_NAME: query-parser-agent
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: debug
+    volumes:
+      - ./agents/query-parser-agent:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  retrieval-agent:
+    build:
+      context: ./agents/retrieval-agent
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-retrieval-agent
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: development
+      AGENT_PORT: 3003
+      AGENT_NAME: retrieval-agent
+      PINECONE_API_KEY: ${PINECONE_API_KEY}
+      MONGODB_URI: mongodb://root:root123@mongodb:27017/ragentic?authSource=admin
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: debug
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./agents/retrieval-agent:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  ranking-agent:
+    build:
+      context: ./agents/ranking-agent
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-ranking-agent
+    ports:
+      - "3004:3004"
+    environment:
+      NODE_ENV: development
+      AGENT_PORT: 3004
+      AGENT_NAME: ranking-agent
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: debug
+    volumes:
+      - ./agents/ranking-agent:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  generation-agent:
+    build:
+      context: ./agents/generation-agent
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-generation-agent
+    ports:
+      - "3005:3005"
+    environment:
+      NODE_ENV: development
+      AGENT_PORT: 3005
+      AGENT_NAME: generation-agent
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: debug
+    volumes:
+      - ./agents/generation-agent:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  validation-agent:
+    build:
+      context: ./agents/validation-agent
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-validation-agent
+    ports:
+      - "3006:3006"
+    environment:
+      NODE_ENV: development
+      AGENT_PORT: 3006
+      AGENT_NAME: validation-agent
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: debug
+    volumes:
+      - ./agents/validation-agent:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+  # ============ Frontend ============
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-frontend
+    ports:
+      - "3001:3001"
+    environment:
+      REACT_APP_API_URL: http://localhost:3000/api
+      REACT_APP_WS_URL: ws://localhost:3000
+      REACT_APP_ENV: development
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - ragentic-network
+
+  # ============ CrewAI Control Plane ============
+
+  crew-control:
+    build:
+      context: ./crew-control
+      dockerfile: Dockerfile.dev
+    container_name: ragentic-crew-control
+    ports:
+      - "4000:4000"
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      BACKEND_URL: http://backend:3000
+      LOG_LEVEL: DEBUG
+    depends_on:
+      - backend
+    volumes:
+      - ./crew-control:/app
+      - /app/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ragentic-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  ragentic-network:
+    driver: bridge

@@ -1,0 +1,39 @@
+{
+  "name": "ragentic",
+  "version": "1.0.0",
+  "description": "Enterprise-grade Multi-Agent RAG system with MERN stack",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../agents && npm install",
+    "dev": "docker-compose -f docker-compose.dev.yml up",
+    "dev:detach": "docker-compose -f docker-compose.dev.yml up -d",
+    "dev:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "down": "docker-compose -f docker-compose.dev.yml down",
+    "build:prod": "docker-compose -f docker-compose.prod.yml build",
+    "start:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "db:migrate": "cd backend && npm run migrate",
+    "db:seed": "cd backend && npm run seed"
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "agents",
+    "crew-control"
+  ],
+  "devDependencies": {
+    "eslint": "^8.53.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.33.2",
+    "prettier": "^3.1.0",
+    "typescript": "^4.9.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

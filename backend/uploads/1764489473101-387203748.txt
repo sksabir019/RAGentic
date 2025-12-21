@@ -1,0 +1,1 @@
+RAGentic is an AI-powered document question answering system. It allows users to upload documents and ask questions about them. The system uses advanced RAG (Retrieval Augmented Generation) technology to find relevant information and generate accurate answers.
