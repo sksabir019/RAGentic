@@ -63,12 +63,7 @@ services:
   # ============ Backend Services ============
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        NODE_ENV: production
-    image: ragentic-backend:latest
+    image: shazam007/ragentic-backend:latest
     container_name: ragentic-backend
     ports:
       - "3000:3000"
@@ -123,10 +118,7 @@ services:
   # ============ Agent Services ============
 
   ingestion-agent:
-    build:
-      context: ./agents/ingestion-agent
-      dockerfile: Dockerfile
-    image: ragentic-ingestion-agent:latest
+    image: shazam007/ragentic-ingestion-agent:latest
     container_name: ragentic-ingestion-agent
     ports:
       - "3001:3001"
@@ -153,10 +145,7 @@ services:
         max-file: "3"
 
   query-parser-agent:
-    build:
-      context: ./agents/query-parser-agent
-      dockerfile: Dockerfile
-    image: ragentic-query-parser-agent:latest
+    image: shazam007/ragentic-query-parser-agent:latest
     container_name: ragentic-query-parser-agent
     ports:
       - "3002:3002"
@@ -182,10 +171,7 @@ services:
         max-file: "3"
 
   retrieval-agent:
-    build:
-      context: ./agents/retrieval-agent
-      dockerfile: Dockerfile
-    image: ragentic-retrieval-agent:latest
+    image: shazam007/ragentic-retrieval-agent:latest
     container_name: ragentic-retrieval-agent
     ports:
       - "3003:3003"
@@ -212,10 +198,7 @@ services:
         max-file: "3"
 
   ranking-agent:
-    build:
-      context: ./agents/ranking-agent
-      dockerfile: Dockerfile
-    image: ragentic-ranking-agent:latest
+    image: shazam007/ragentic-ranking-agent:latest
     container_name: ragentic-ranking-agent
     ports:
       - "3004:3004"
@@ -241,10 +224,7 @@ services:
         max-file: "3"
 
   generation-agent:
-    build:
-      context: ./agents/generation-agent
-      dockerfile: Dockerfile
-    image: ragentic-generation-agent:latest
+    image: shazam007/ragentic-generation-agent:latest
     container_name: ragentic-generation-agent
     ports:
       - "3005:3005"
@@ -270,10 +250,7 @@ services:
         max-file: "3"
 
   validation-agent:
-    build:
-      context: ./agents/validation-agent
-      dockerfile: Dockerfile
-    image: ragentic-validation-agent:latest
+    image: shazam007/ragentic-validation-agent:latest
     container_name: ragentic-validation-agent
     ports:
       - "3006:3006"
@@ -344,10 +321,7 @@ services:
   # ============ Frontend ============
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: ragentic-frontend:latest
+    image: shazam007/ragentic-frontend:latest
     container_name: ragentic-frontend
     ports:
       - "80:80"

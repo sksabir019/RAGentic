@@ -15,7 +15,17 @@ export interface DocumentIngestionJobData {
 
 function buildRedisConnection() {
   if (process.env.REDIS_URL) {
-    return { url: process.env.REDIS_URL };
+    try {
+      const url = new URL(process.env.REDIS_URL);
+      return {
+        host: url.hostname,
+        port: Number.parseInt(url.port || '6379', 10),
+        password: url.password || undefined,
+        db: Number.parseInt(url.pathname.replace('/', '') || '0', 10),
+      };
+    } catch (error) {
+      console.warn('Invalid REDIS_URL provided, falling back to host/port vars');
+    }
   }
 
   return {

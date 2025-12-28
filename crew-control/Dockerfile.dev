@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir -r requirements-new.txt
 
 # Copy source code
 COPY src ./src
-COPY crew-control.py ./
 
 EXPOSE 3007
 

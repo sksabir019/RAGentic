@@ -67,10 +67,12 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
+      DATABASE_TYPE: mongodb
       MONGODB_URI: mongodb://root:root123@mongodb:27017/ragentic?authSource=admin
       REDIS_URL: redis://:redis123@redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       JWT_SECRET: dev-secret-key-change-in-production
+      CORS_ORIGIN: http://localhost:5173
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       PINECONE_API_KEY: ${PINECONE_API_KEY}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -270,11 +272,12 @@ services:
       dockerfile: Dockerfile.dev
     container_name: ragentic-frontend
     ports:
-      - "3001:3001"
+      - "5173:5173"
     environment:
       REACT_APP_API_URL: http://localhost:3000/api
       REACT_APP_WS_URL: ws://localhost:3000
       REACT_APP_ENV: development
+      VITE_API_PROXY: http://backend:3000
     depends_on:
       - backend
     volumes:

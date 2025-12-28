@@ -6,10 +6,12 @@ This document captures how requests move through the system, when each agent par
 
 1. **User Action**: The frontend upload page sends a multipart request to `POST /api/documents/upload` on the API gateway.
 2. **Gateway Validation**: The Express backend enforces JWT authentication, checks file size/type limits, and writes logs with a new trace ID.
-3. **Processing Path**:
-   - **With Ingestion Agent**: The gateway forwards the file reference to the ingestion agent (port 3001). The agent extracts text, splits it into chunks, and generates embeddings before handing processed chunks back to the gateway.
-   - **Without Agent**: The gateway runs the same logic internally through `DocumentProcessingService` (pdf-parse, Mammoth, tokenizer, embedding fallback).
-4. **Storage**: Chunks, metadata, and embeddings are persisted through the database adapter (PostgreSQL or MongoDB) and cached in memory for quick lookup. Status updates are sent back to the client so the UI can show progress.
+3. **Processing Path & Queueing**:
+   - The backend always writes an entry to the `document-ingestion` BullMQ queue (Redis) so the upload response can return immediately. When Redis requires a password (default dev stack), the backend derives host/port/pass from `REDIS_URL`; failed connections prevent the job from being enqueued and surface as upload errors.
+   - **With Ingestion Agent**: The queue job triggers the ingestion agent (port 3001). The agent extracts text, splits it into chunks, and generates embeddings before handing processed chunks back to the gateway.
+   - **Without Agent**: The queue job uses `DocumentProcessingService` directly (pdf-parse, Mammoth, tokenizer, embedding fallback). This path is also used when agents are offline.
+4. **Storage & Status Updates**: Chunks, metadata, and embeddings are persisted through the database adapter (PostgreSQL or MongoDB) and cached for quick lookup. Job status is updated after each stage so the Upload page can display queued → processing → ready/failure states in real time.
+5. **Worker Lifecycle**: The Node worker in `backend/src/workers/documentIngestionWorker.ts` listens on the same queue. You can run it inside Docker (default) or locally via `npm run worker:documents` as long as Redis credentials match (`REDIS_URL=redis://:redis123@127.0.0.1:6379/0`).
 
 ## 2. Authentication Context
 
@@ -125,6 +127,7 @@ Consistency in key names (`payload`, `context`, `data`) is important; the gatewa
 
 - **Timeouts**: Each agent call sets a timeout (5–30 seconds depending on step). Expired calls throw and trigger fallback or error propagation.
 - **Partial failure**: If any agent beyond retrieval fails, the backend may reuse available data (e.g., skip validation but return the generated answer with a warning).
+- **Queue or Redis outage**: When the BullMQ connection fails (bad `REDIS_URL`, auth mismatch, or offline Redis), uploads fail immediately with a descriptive 500 because the ingestion job cannot be enqueued. Fix the Redis connection and retry—no documents are lost because the binary never leaves the gateway.
 - **Confidence guard**: Responses with confidence below `CONFIDENCE_THRESHOLD` include a warning field so the frontend can signal reduced reliability.
 - **LLM errors**: Provider-specific failures (quota, network) fall back to alternative providers when configured or respond with HTTP 503 and a descriptive message.
 - **Rate limit**: Exceeded thresholds return HTTP 429 with retry information.

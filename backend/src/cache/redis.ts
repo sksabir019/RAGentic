@@ -2,8 +2,23 @@ import { createClient, RedisClientType } from 'redis';
 
 let redisClient: RedisClientType | null = null;
 
+function buildRedisUrl(): string {
+  if (process.env.REDIS_URL) {
+    return process.env.REDIS_URL;
+  }
+
+  const host = process.env.REDIS_HOST || 'localhost';
+  const port = process.env.REDIS_PORT || '6379';
+  const password = process.env.REDIS_PASSWORD;
+  const db = process.env.REDIS_DB || '0';
+
+  const authSegment = password ? `:${password}@` : '';
+  return `redis://${authSegment}${host}:${port}/${db}`;
+}
+
 export async function setupRedis(): Promise<RedisClientType> {
-  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  const redisUrl = buildRedisUrl();
+  console.log('Setting up Redis host:', redisUrl.replace(/:\S+@/, '@'));
 
   redisClient = createClient({ url: redisUrl });
 

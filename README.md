@@ -1,4 +1,3 @@
-docker-compose -f docker-compose.dev.yml up
 # RAGentic
 
 Enterprise-ready retrieval-augmented generation platform with a modular multi-agent architecture, TypeScript end to end, and first-class DevOps tooling.
@@ -8,6 +7,7 @@ Enterprise-ready retrieval-augmented generation platform with a modular multi-ag
 - [Overview](#overview)
 - [System Highlights](#system-highlights)
 - [Architecture Snapshot](#architecture-snapshot)
+- [Screenshots](#screenshots)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Quick Start with Docker Compose](#quick-start-with-docker-compose)
@@ -46,6 +46,17 @@ Agents (CrewAI) ──┘            │
 
 Each agent exposes a focused contract, enabling independent scaling and fault isolation. The API gateway handles authentication, document processing, query routing, and history persistence.
 
+## Screenshots
+
+### Dashboard
+![Login Interface](images/UI01.png)
+
+### Document Upload & Processing
+![Upload Dashboard](images/UI02.png)
+
+### Analytics
+![Query & Results](images/UI03.png)
+
 ## Getting Started
 
 ### Prerequisites
@@ -56,48 +67,90 @@ Each agent exposes a focused contract, enabling independent scaling and fault is
 
 ### Quick Start with Docker Compose
 
-```bash
-# Copy environment template and adjust values as needed
-cp .env.example .env
+#### Development Mode (Local Build)
 
-# Launch the full stack (backend, frontend, agents, databases, ingestion worker)
-docker-compose -f docker-compose.dev.yml up --build
+1. Copy the environment template and update credentials/API keys as needed:
 
-# Health checks
-curl http://localhost:3000/health          # Backend API
-curl http://localhost:3001/health || true  # Ingestion agent (if enabled)
-```
+  ```bash
+  cp .env.example .env
+  ```
+
+2. Launch the core services (databases, Redis, backend API, agents, frontend). Crew Control is excluded by default because its Python dependencies require extra resolution.
+
+  ```bash
+  docker compose -f docker-compose.dev.yml up -d \
+    mongodb redis rabbitmq \
+    backend ingestion-agent query-parser-agent retrieval-agent ranking-agent generation-agent validation-agent \
+    frontend
+  ```
+
+3. Verify the stack:
+
+  ```bash
+  docker compose -f docker-compose.dev.yml ps
+  curl http://localhost:3000/health          # Backend API
+  curl http://localhost:3001/health || true  # Ingestion agent
+  ```
 
 Access points:
 
-- Frontend SPA: `http://localhost:3001`
+- Frontend SPA: `http://localhost:5173` (the Vite dev server behind the frontend container)
 - REST API: `http://localhost:3000/api`
 - Agents: `http://localhost:3001-3006`
 
-Stop the stack:
+Stop everything:
 
 ```bash
-
+docker compose -f docker-compose.dev.yml down
 ```
+
+#### Production Mode (Pre-built Images)
+
+Deploy using published Docker Hub images:
+
+```bash
+cp .env.example .env
+# Edit .env with production credentials
+
+docker compose -f docker-compose.prod.yml up -d
+```
+
+All images are available at:
+- `shazam007/ragentic-backend:latest`
+- `shazam007/ragentic-frontend:latest`
+- `shazam007/ragentic-{ingestion,query-parser,retrieval,ranking,generation,validation}-agent:latest`
+
+Access production stack:
+- Frontend: `http://localhost:80`
+- API: `http://localhost:3000`
+- Agents: `http://localhost:3001-3006`
 
 ### Manual Setup
 
 ```bash
 npm run install:all        # Install root, frontend, backend dependencies
 
+# Bring up infra locally (Mongo, Redis, RabbitMQ)
+docker compose -f docker-compose.dev.yml up -d mongodb redis rabbitmq
+
 cd backend
-npm run migrate            # Apply database migrations (requires Postgres with vector extension)
-npm run dev                # Starts API gateway (requires database + redis)
-npm run worker:documents   # In a second terminal, start the ingestion worker
+cp .env.example .env
+edit .env  # DATABASE_TYPE=mongodb, REDIS_URL=redis://:redis123@127.0.0.1:6379/0, etc.
+npm run migrate            # Apply migrations when using Postgres
+npm run dev                # Starts API gateway (expects Mongo/Redis/RabbitMQ from step above)
+# optional: npm run worker:documents if you want a dedicated ingestion worker process
 
 cd ../frontend
-npm run dev                # Starts Vite dev server at http://localhost:5173
+npm run dev                # Starts Vite dev server at http://localhost:5173 (or 5174 if busy)
 ```
 
 Recommended companion services for manual runs:
 
-- MongoDB or Postgres (configure via `.env`)
-- Redis (for caching and rate limiting)
+- MongoDB (default dev database) or Postgres (enable via `.env`)
+- Redis for caching + BullMQ queue (`REDIS_URL` **must** include the password if Redis was started with `--requirepass`)
+- RabbitMQ for ingestion monitoring jobs
+
+If you prefer fully local databases instead of Docker, ensure the credentials in `.env` match your running services before invoking `npm run dev`.
 
 ## Services
 

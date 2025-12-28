@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { AppDataSource } from '../database/connection';
+import { dbAdapter } from '../database/adapter';
 import { getRedis } from '../cache/redis';
 
 export const healthRoutes = Router();
@@ -19,7 +19,7 @@ healthRoutes.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const checks = {
       api: true,
-      database: AppDataSource.isInitialized,
+      database: dbAdapter.getDataSource().isInitialized,
       cache: (await checkRedis()).status === 'ok',
     };
 
@@ -50,7 +50,7 @@ healthRoutes.get('/', async (req: Request, res: Response): Promise<void> => {
 
 healthRoutes.get('/ready', async (req: Request, res: Response): Promise<void> => {
   const ready =
-    AppDataSource.isInitialized &&
+    dbAdapter.getDataSource().isInitialized &&
     (await checkRedis()).status === 'ok';
 
   res.status(ready ? 200 : 503).json({

@@ -17,7 +17,7 @@ const mongoUser = process.env.MONGODB_USER || 'root';
 const mongoPassword = process.env.MONGODB_PASSWORD || 'root123';
 const mongoDatabase = process.env.MONGODB_DATABASE || 'ragentic';
 
-const mongoUri = process.env.MONGO_URI || 
+const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || 
   `mongodb://${mongoUser}:${mongoPassword}@${mongoHost}:${mongoPort}/${mongoDatabase}?authSource=admin`;
 
 export const MongoDataSource = new DataSource({

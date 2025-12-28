@@ -80,6 +80,12 @@ app.use((req: Request, res: Response): void => {
 
 // ============ Utility Functions ============
 
+interface DocumentInput {
+  documentId?: string;
+  resultId?: string;
+  [key: string]: unknown;
+}
+
 interface RankedDocument {
   documentId: string;
   rank: number;
@@ -93,11 +99,11 @@ interface RankedDocument {
 
 function rankDocuments(
   query: string,
-  documents: any[],
+  documents: DocumentInput[],
   topK: number
 ): RankedDocument[] {
   // Calculate ranking scores for each document
-  const scoredDocuments = documents.map((doc: any, idx: number) => {
+  const scoredDocuments = documents.map((doc: DocumentInput, idx: number) => {
     const relevanceScore = Math.max(0.5, 1 - idx * 0.1);
     const diversityScore = 0.7 + Math.random() * 0.3;
     const freshnessScore = 0.8;
@@ -121,13 +127,13 @@ function rankDocuments(
   });
 
   // Sort by combined score and take top K
-  const sorted = scoredDocuments.toSorted(
+  const sorted = [...scoredDocuments].sort(
     (a, b) => b.combinedScore - a.combinedScore
   );
   return sorted
     .slice(0, topK)
     .map((doc, idx) => ({
-      documentId: doc.documentId || doc.resultId,
+      documentId: (doc.documentId || doc.resultId || `doc-${idx}`) as string,
       rank: idx + 1,
       relevanceScore: doc.relevanceScore,
       diversityScore: doc.diversityScore,
